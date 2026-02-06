@@ -2122,10 +2122,8 @@
                         <h3><i class="fas fa-phone-alt"></i> Contacto</h3>
                         <a href="https://wa.me/5491155739203" target="_blank" class="contact-link whatsapp">
                             <i class="fab fa-whatsapp"></i> +54 9 11 5573-9203
-<a href="https://instagram.com/alexis.sebastiann" 
-   target="_blank" 
-   rel="noopener noreferrer"
-   onclick="event.preventDefault(); window.open('https://instagram.com/alexis.sebastiann', '_blank', 'noopener,noreferrer'); return false;"
+<a href="#" 
+   onclick="return abrirInstagramEnNavegador();"
    class="contact-link instagram">
    <i class="fab fa-instagram"></i> @alexis.sebastiann
 </a>
@@ -6389,6 +6387,26 @@ if (syncIndicator) {
             }
         });
     }
+}
+
+// Función para abrir Instagram en el navegador (método definitivo)
+function abrirInstagramEnNavegador() {
+    const instagramUrl = 'https://instagram.com/alexis.sebastiann';
+    
+    // Truco: crear un iframe temporal que abra en el navegador
+    const tempIframe = document.createElement('iframe');
+    tempIframe.style.display = 'none';
+    tempIframe.src = instagramUrl;
+    document.body.appendChild(tempIframe);
+    
+    // Después de un momento, abrir en nueva pestaña
+    setTimeout(() => {
+        window.open(instagramUrl, '_blank', 'noopener,noreferrer');
+        // Remover el iframe
+        document.body.removeChild(tempIframe);
+    }, 100);
+    
+    return false;
 }
     </script>
 </html>
