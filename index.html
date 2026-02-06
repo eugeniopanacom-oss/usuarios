@@ -2376,6 +2376,8 @@ let firebaseListenersInitialized = false;
 let updatingHours = false;
 let lastUpdateTime = 0;
 const UPDATE_COOLDOWN = 1000;
+let ofertaMostradaParaFechaHora = {}; 
+let ofertaRechazadaParaFechaHora = {};
 
 // Variables globales del calendario
 let currentMonth = 1; // Febrero
@@ -2733,12 +2735,15 @@ function inicializarCalendarioSimple() {
 }
 
 // ========== MODIFICAR LA FUNCIÓN seleccionarFecha ==========
-// REEMPLAZA la función seleccionarFecha actual por esta versión mejorada:
 function seleccionarFecha(dateStr) {
     console.log("📅 Fecha seleccionada:", dateStr);
     
     // 🔴 SOLO asignar cuando el usuario realmente hace clic
     window.selectedDate = dateStr;
+    
+    // 🔴 NUEVO: Limpiar registros de ofertas mostradas/rechazadas cuando cambia la fecha
+    ofertaMostradaParaFechaHora = {};
+    ofertaRechazadaParaFechaHora = {};
     
     // Resetear oferta si cambia la fecha
     if (ofertaSeleccionada) {
@@ -2809,6 +2814,13 @@ function verificarScrollHorarios() {
 // Función para seleccionar hora - AGREGAR ESTA FUNCIÓN
 function selectTime(timeStr) {
     console.log("🕐 selectTime llamado con:", timeStr);
+
+     // 🔴 NUEVO: Limpiar registros de ofertas cuando se cambia la hora
+    if (window.selectedTime !== timeStr) {
+        console.log("🕐 Hora cambiada, limpiando registros de ofertas");
+        ofertaMostradaParaFechaHora = {};
+        ofertaRechazadaParaFechaHora = {};
+    }
     
     // Validar que sea hora en punto (00 minutos)
     const minutos = timeStr.split(':')[1];
@@ -3437,24 +3449,39 @@ function verificarEstadoCalendario() {
             // Selector de servicio
             const serviceSelect = document.getElementById('serviceSelect');
 // En el evento change del selector de servicios:
+// En el evento change del selector de servicios:
 if (serviceSelect) {
     serviceSelect.addEventListener('change', function() {
-       // Si se selecciona un servicio diferente a la oferta, resetear la oferta
+        // Si se selecciona un servicio diferente a la oferta, resetear la oferta
         if (this.value !== "Corte + Afeitado Especial" && ofertaSeleccionada) {
             ofertaSeleccionada = false;
             console.log("Oferta deseleccionada al cambiar servicio");
+            
+            // 🔴 NUEVO: Si el usuario selecciona un servicio común después de rechazar oferta,
+            // NO volver a mostrar la oferta
+            if (window.selectedDate && window.selectedTime) {
+                const claveOferta = `${window.selectedDate}_${window.selectedTime}`;
+                ofertaRechazadaParaFechaHora[claveOferta] = true;
+                console.log(`✅ Previniendo reaparición de oferta para: ${claveOferta}`);
+            }
         }
         
         window.selectedService = this.value;
         console.log("✂️ Servicio seleccionado:", this.value);
         updateReservationSummary();
         
-        // 🔴 Verificar oferta si ya tenemos fecha y hora seleccionadas
+        // 🔴 IMPORTANTE: NO verificar oferta si el usuario ya rechazó una
         if (window.selectedDate && window.selectedTime && window.selectedService && ofertaActiva && !ofertaSeleccionada) {
-            console.log("✅ Servicio cambiado, verificando oferta...");
-            setTimeout(() => {
-                verificarYMostrarOferta();
-            }, 300);
+            const claveOferta = `${window.selectedDate}_${window.selectedTime}`;
+            
+            if (!ofertaRechazadaParaFechaHora[claveOferta]) {
+                console.log("✅ Servicio cambiado, verificando oferta...");
+                setTimeout(() => {
+                    verificarYMostrarOferta();
+                }, 300);
+            } else {
+                console.log("⏭️ Oferta ya fue rechazada, no volver a mostrar");
+            }
         }
     });
 }
@@ -3569,6 +3596,21 @@ function verificarYMostrarOferta() {
         return false;
     }
     
+    // 🔴 NUEVO: Crear clave única para esta fecha y hora
+    const claveOferta = `${window.selectedDate}_${window.selectedTime}`;
+    
+    // 🔴 Verificar si ya se mostró oferta para esta fecha y hora
+    if (ofertaMostradaParaFechaHora[claveOferta]) {
+        console.log("⏭️ Oferta ya fue mostrada para esta fecha y hora");
+        return false;
+    }
+    
+    // 🔴 Verificar si el usuario ya rechazó oferta para esta fecha y hora
+    if (ofertaRechazadaParaFechaHora[claveOferta]) {
+        console.log("⏭️ Oferta ya fue rechazada para esta fecha y hora");
+        return false;
+    }
+    
     if (!ofertaActiva) {
         console.log("⏭️ No hay ofertas activas");
         return false;
@@ -3657,6 +3699,9 @@ function verificarYMostrarOferta() {
         
         if (esAplicable) {
             console.log(`✅ Oferta APLICABLE: ${oferta.nombre}, mostrando modal...`);
+            
+            // 🔴 Registrar que ya mostramos oferta para esta fecha y hora
+            ofertaMostradaParaFechaHora[claveOferta] = true;
             
             // 🔴 PEQUEÑO DELAY para mejor UX
             setTimeout(() => {
@@ -5521,48 +5566,6 @@ function showNotification(message, type = "info", duration = 5000) {
             }
         }
 
-        function resetForm() {
-    // Limpiar campos del formulario
-    document.getElementById('clientName').value = '';
-    document.getElementById('clientWhatsApp').value = '';
-    document.getElementById('serviceSelect').value = '';
-
-    // Limpiar selecciones
-    document.querySelectorAll('.selected').forEach(el => {
-        el.classList.remove('selected');
-    });
-
-    // Resetear variables globales
-    window.selectedDate = null;
-    window.selectedTime = null;
-    window.selectedService = null;
-    
-    // Resetear oferta
-    ofertaSeleccionada = false;
-    
-    // Quitar la opción de oferta del selector
-    const serviceSelect = document.getElementById('serviceSelect');
-    if (serviceSelect) {
-        const ofertaOption = serviceSelect.querySelector('option[value="Corte + Afeitado Especial"]');
-        if (ofertaOption) {
-            ofertaOption.remove();
-        }
-    }
-
-    // Actualizar UI
-    updateReservationSummary();
-    scheduleUpdateAvailableHours();
-
-    // Volver al calendario
-    const selectedDateText = document.getElementById('selectedDateText');
-    if (selectedDateText) {
-        selectedDateText.textContent = 'Selecciona una fecha en el calendario';
-    }
-
-    console.log("✅ Formulario reseteado");
-}
-
-
         // Función para mostrar notificaciones
         function showNotification(message, type = "info") {
             const notification = document.getElementById('notification');
@@ -5629,6 +5632,8 @@ function showNotification(message, type = "info", duration = 5000) {
 
             // Función para resetear el formulario
             function resetForm() {
+   console.log("🧹 Limpiando formulario completo");
+
                 // Limpiar campos del formulario
                 document.getElementById('clientName').value = '';
                 document.getElementById('clientWhatsApp').value = '';
@@ -5648,6 +5653,10 @@ function showNotification(message, type = "info", duration = 5000) {
                 updateReservationSummary();
                 scheduleUpdateAvailableHours();
 
+                 // Limpiar estado de ofertas
+    limpiarTodoEstadoOfertas();
+    
+
                 // Volver al calendario
                 const selectedDateText = document.getElementById('selectedDateText');
                 if (selectedDateText) {
@@ -5656,6 +5665,7 @@ function showNotification(message, type = "info", duration = 5000) {
 
                 console.log("✅ Formulario reseteado");
             }
+        
 
             // Función para mostrar notificaciones (si no la tienes)
             function showNotification(message, type = "info") {
@@ -5810,6 +5820,13 @@ function selectDate(dateStr) {
             }
         }
     }
+
+    function limpiarTodoEstadoOfertas() {
+    console.log("🧹 Limpiando todo el estado de ofertas");
+    ofertaMostradaParaFechaHora = {};
+    ofertaRechazadaParaFechaHora = {};
+    ofertaSeleccionada = false;
+}
     
     // Marcar como seleccionada
     document.querySelectorAll('.calendar-date').forEach(el => {
@@ -6084,14 +6101,6 @@ function mostrarOfertaSiCorresponde() {
     }
 }
 
-// Función para cerrar oferta
-function cerrarOferta() {
-    console.log("❌ Oferta rechazada por el usuario");
-    ofertaSeleccionada = false;
-    cerrarModalOferta();
-    showNotification("Puedes seleccionar otro servicio si lo prefieres", "info");
-}
-
 // Función para obtener fecha de hoy en formato YYYY-MM-DD
 function getTodayDateString() {
     const hoy = new Date();
@@ -6104,6 +6113,14 @@ function getTodayDateString() {
 // Función para cerrar oferta
 function cerrarOferta() {
     console.log("❌ Oferta rechazada por el usuario");
+    
+    // 🔴 NUEVO: Registrar que el usuario rechazó la oferta para esta fecha y hora
+    if (window.selectedDate && window.selectedTime) {
+        const claveOferta = `${window.selectedDate}_${window.selectedTime}`;
+        ofertaRechazadaParaFechaHora[claveOferta] = true;
+        console.log(`✅ Oferta registrada como rechazada para: ${claveOferta}`);
+    }
+    
     ofertaSeleccionada = false;
     cerrarModalOferta();
     showNotification("Puedes seleccionar otro servicio si lo prefieres", "info");
@@ -6328,14 +6345,6 @@ function aceptarOfertaEspecifica(oferta) {
         showNotification("Error al aplicar la oferta", "error");
         window.procesandoOferta = false;
     }
-}
-
-// Función para cerrar la oferta
-function cerrarOferta() {
-    console.log("❌ Oferta rechazada");
-    ofertaSeleccionada = false;
-    cerrarModalOferta();
-    showNotification("Puedes seleccionar otro servicio", "info");
 }
 
 // Función para cerrar el modal de oferta
