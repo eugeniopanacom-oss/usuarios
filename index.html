@@ -2123,13 +2123,10 @@
                         <a href="https://wa.me/5491155739203" target="_blank" class="contact-link whatsapp">
                             <i class="fab fa-whatsapp"></i> +54 9 11 5573-9203
                         </a>
-                       <!-- Esta es la solución más efectiva -->
-<a href="https://www.instagram.com/alexis.sebastiann" 
-   target="_blank" 
-   class="contact-link instagram"
-   onclick="window.open(this.href, '_blank', 'noopener,noreferrer'); return false;">
-    <i class="fab fa-instagram"></i> @alexis.sebastiann
-</a>
+                        <a href="https://www.instagram.com/alexis.sebastiann?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
+                            target="_blank" class="contact-link instagram">
+                            <i class="fab fa-instagram"></i> @alexis.sebastiann
+                        </a>
                         <div class="barbero-description">
                             <p><strong>Alexis</strong>, tu barbero profesional.</p>
                             <p>"Cada corte es una obra de arte. Espero tu visita para crear el estilo perfecto para ti."
@@ -6390,36 +6387,6 @@ if (syncIndicator) {
             }
         });
     }
-}
-
-function openInstagramProfile(username) {
-    // URLs para diferentes métodos
-    const appUrl = `instagram://user?username=${username}`;
-    const webUrl = `https://www.instagram.com/${username}/`;
-    const altWebUrl = `https://instagram.com/${username}`;
-    
-    // Crear iframe para intentar abrir app
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = appUrl;
-    document.body.appendChild(iframe);
-    
-    // Si no se abre la app, redirigir a web después de un tiempo
-    setTimeout(function() {
-        document.body.removeChild(iframe);
-        
-        // Verificar si estamos en dispositivo móvil
-        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-            // En móvil, intentar con formato _u/
-            window.location.href = `https://instagram.com/_u/${username}/`;
-        } else {
-            // En escritorio, web normal
-            window.open(webUrl, '_blank');
-        }
-    }, 500);
-    
-    // Prevenir navegación por defecto
-    return false;
 }
     </script>
 </html>
