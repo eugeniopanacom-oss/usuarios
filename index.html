@@ -1950,6 +1950,41 @@
     font-weight: bold;
 }
 
+/* Agrega esto al final de tu sección CSS, justo antes del </style> */
+
+/* ========== SCROLL SIMPLE PARA HORARIOS EN MÓVIL ========== */
+@media (max-width: 768px) {
+    .hours-list {
+        max-height: 250px; /* Altura máxima fija para móviles */
+        overflow-y: auto; /* Habilitar scroll vertical */
+        padding-right: 5px; /* Espacio para el scrollbar */
+    }
+    
+    /* Personalizar el scrollbar */
+    .hours-list::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .hours-list::-webkit-scrollbar-track {
+        background: var(--dark);
+        border-radius: 3px;
+    }
+    
+    .hours-list::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 3px;
+    }
+    
+    .hours-list::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-dark);
+    }
+    
+    /* Para Firefox */
+    .hours-list {
+        scrollbar-width: thin;
+        scrollbar-color: var(--primary) var(--dark);
+    }
+}
     </style>
 <body>
     <!-- Header con logo -->
@@ -2675,6 +2710,7 @@ function inicializarCalendarioSimple() {
 }
 
 // ========== MODIFICAR LA FUNCIÓN seleccionarFecha ==========
+// REEMPLAZA la función seleccionarFecha actual por esta versión mejorada:
 function seleccionarFecha(dateStr) {
     console.log("📅 Fecha seleccionada:", dateStr);
     
@@ -2716,8 +2752,34 @@ function seleccionarFecha(dateStr) {
         scheduleUpdateAvailableHours();
     }
     
+    // 🔴 NUEVO: Hacer scroll a horarios disponibles en móviles
+    setTimeout(() => {
+        const hoursContainer = document.querySelector('.hours-container');
+        if (hoursContainer && window.innerWidth <= 768) {
+            hoursContainer.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }
+    }, 300);
+    
     // 🔴 NO verificar oferta aquí - solo cuando se seleccione la hora
     console.log("✅ Fecha seleccionada, esperando hora para mostrar oferta");
+}
+
+// Agrega esta función para verificar si se necesita scroll
+function verificarScrollHorarios() {
+    const hoursList = document.getElementById('hoursList');
+    const hoursContainer = document.querySelector('.hours-container');
+    
+    if (!hoursList || !hoursContainer || window.innerWidth > 768) return;
+    
+    // Verificar si el contenido es más alto que el contenedor
+    if (hoursList.scrollHeight > hoursList.clientHeight) {
+        hoursContainer.classList.add('scroll-available');
+    } else {
+        hoursContainer.classList.remove('scroll-available');
+    }
 }
 
 // ========== MODIFICAR LA FUNCIÓN selectTime ==========
@@ -4429,6 +4491,10 @@ async function updateAvailableHours() {
             </div>
         `;
     }
+
+       setTimeout(() => {
+        verificarScrollHorarios();
+    }, 100);
 }
 
 // 🔴 FUNCIÓN MEJORADA PARA CONFIGURAR LISTENERS DE FIREBASE
