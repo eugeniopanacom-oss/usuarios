@@ -1950,8 +1950,6 @@
     font-weight: bold;
 }
 
-/* Agrega esto al final de tu sección CSS, justo antes del </style> */
-
 /* ========== SCROLL SIMPLE PARA HORARIOS EN MÓVIL ========== */
 @media (max-width: 768px) {
     .hours-list {
@@ -1983,6 +1981,31 @@
     .hours-list {
         scrollbar-width: thin;
         scrollbar-color: var(--primary) var(--dark);
+    }
+}
+
+/* Indicador visual de que hay más contenido (opcional) */
+@media (max-width: 768px) {
+    .hours-container {
+        position: relative;
+    }
+    
+    .hours-container::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 20px;
+        background: linear-gradient(to top, var(--gray), transparent);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    /* Mostrar gradiente cuando el contenido es más alto que el contenedor */
+    .hours-container.scroll-available::after {
+        opacity: 0.8;
     }
 }
     </style>
