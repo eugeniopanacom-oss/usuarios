@@ -2295,28 +2295,24 @@
         </div>
     </div>
 
-    <!-- Sección para reportar problemas -->
-    <footer class="report-section">
-        <button class="report-toggle" id="toggleReport">
-            <i class="fas fa-exclamation-triangle"></i> Reportar un Problema
-        </button>
+  <!-- Sección para reportar problemas -->
+<footer class="report-section">
+    <button class="report-toggle" id="toggleReport">
+        <i class="fas fa-exclamation-triangle"></i> Reportar un Problema
+    </button>
 
-        <div class="report-form" id="reportForm">
-            <div class="form-group">
-                <label for="problemDescription">Describe el problema *</label>
-                <textarea id="problemDescription" class="form-control" rows="3"
-                    placeholder="Detalla el problema que encontraste..."></textarea>
-            </div>
-
-            <button class="capture-btn" id="captureScreen">
-                <i class="fas fa-camera"></i> Capturar Pantalla
-            </button>
-
-            <button class="btn" id="sendReport" style="margin-top: 15px; width: 100%;">
-                <i class="fas fa-paper-plane"></i> Enviar Reporte
-            </button>
+    <div class="report-form" id="reportForm">
+        <div class="form-group">
+            <label for="problemDescription">Describe el problema *</label>
+            <textarea id="problemDescription" class="form-control" rows="3"
+                placeholder="Detalla el problema que encontraste..."></textarea>
         </div>
-    </footer>
+
+        <button class="btn" id="sendReport" style="margin-top: 15px; width: 100%;">
+            <i class="fas fa-paper-plane"></i> Enviar Reporte
+        </button>
+    </div>
+</footer>
 
     <!-- Notificación -->
     <div class="notification" id="notification"></div>
@@ -2856,6 +2852,29 @@ function selectTime(timeStr) {
     console.log("⏰ Hora seleccionada:", timeStr);
 }
 
+async function obtenerHorarioFinal(fecha) {
+    const db = firebase.firestore();
+    
+    // 1. Obtener horario PRESTABLECIDO del local
+    const horarioLocal = await db.collection('calendario_usuario')
+        .doc(fecha)
+        .get();
+    
+    // 2. Obtener horario DESEADO por admin (si existe)
+    const horarioAdmin = await db.collection('horarios_agenda')
+        .doc(fecha)
+        .collection('descansos')
+        .get();
+    
+    // 3. Si admin configuró algo para esta fecha, USA ESO
+    if (!horarioAdmin.empty) {
+        return horarioAdmin.docs.map(doc => doc.data());
+    }
+    
+    // 4. Si no, usa el horario PRESTABLECIDO del local
+    return horarioLocal.data()?.horarios || [];
+}
+
 // ========== AGREGAR LIMPIEZA DEL FORMULARIO ==========
 function limpiarFormularioCompleto() {
     console.log("🧹 Limpiando formulario completo");
@@ -3317,6 +3336,160 @@ function diagnosticarOfertas() {
             }
         }
 
+// Modificar la función initializeFirebase para incluir verificación de colecciones
+async function initializeFirebase() {
+    console.log("🚀 INICIALIZANDO FIREBASE CON RECONEXIÓN");
+    
+    if (window.firebaseConnectionTested) {
+        console.log("⏭️ Conexión ya probada");
+        return;
+    }
+    
+    window.firebaseConnectionTested = true;
+    
+    // Verificar conexión primero
+    const conectado = await checkFirebaseConnection();
+    
+    if (!conectado) {
+        console.log("📱 Activando modo demostración...");
+        
+        // Datos de demostración completos
+        loadDemoData();
+        loadDefaultServices();
+        
+        // Ofertas demo
+        window.ofertasDisponibles = [{
+            nombre: "Corte + Afeitado Especial",
+            descripcion: "Corte de cabello + Afeitado clásico",
+            precio_oferta: 3900,
+            precio_normal: 4700,
+            activa: true,
+            tipo_duracion: "horas",
+            duracion_horas: 24,
+            creado_en: new Date().toISOString()
+        }];
+        ofertaActiva = true;
+        
+        // Mostrar indicador de modo demo
+        const syncIndicator = document.getElementById('syncIndicator');
+        if (syncIndicator) {
+            syncIndicator.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            syncIndicator.title = "Modo demostración - Sin conexión";
+            syncIndicator.style.backgroundColor = "#ff4444";
+            syncIndicator.onclick = function() {
+                showNotification('Reconectando a la base de datos...', 'info');
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            };
+        }
+        
+        // Renderizar con datos demo
+        if (window.selectedDate) {
+            scheduleUpdateAvailableHours();
+        }
+        
+        return;
+    }
+    
+    try {
+        // Conexión exitosa
+        db = firebase.firestore();
+        console.log("✅ Firebase listo");
+        
+        // 🔴 VERIFICAR SI LA COLECCIÓN REPORTES EXISTE
+        try {
+            const reportesRef = db.collection('reportes');
+            const snapshot = await reportesRef.limit(1).get();
+            console.log(`✅ Colección 'reportes' ${snapshot.empty ? 'existe pero está vacía' : 'tiene datos'}`);
+        } catch (error) {
+            console.log('⚠️ No se pudo acceder a colección reportes:', error.message);
+        }
+        
+        // Cargar datos iniciales
+        await Promise.all([
+            loadServiciosFromFirebase(),
+            loadBookedSlotsFromFirebase(),
+            verificarOfertasActivas()
+        ]);
+        
+        // Configurar listeners en tiempo real
+        setupRealtimeListeners();
+        
+        // Mostrar indicador de sincronización
+        const syncIndicator = document.getElementById('syncIndicator');
+        if (syncIndicator) {
+            syncIndicator.style.display = 'flex';
+            syncIndicator.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            syncIndicator.title = "Sincronización activa - Click para actualizar";
+            syncIndicator.style.backgroundColor = "var(--primary)";
+            
+            syncIndicator.addEventListener('click', async function() {
+                this.classList.add('syncing');
+                showNotification('🔄 Actualizando datos...', 'info');
+                
+                try {
+                    await Promise.all([
+                        loadServiciosFromFirebase(),
+                        loadBookedSlotsFromFirebase(),
+                        verificarOfertasActivas()
+                    ]);
+                    
+                    if (window.selectedDate) {
+                        updateAvailableHours();
+                    }
+                    
+                    showNotification('✅ Datos actualizados', 'success');
+                } catch (error) {
+                    showNotification('❌ Error al actualizar', 'error');
+                } finally {
+                    setTimeout(() => {
+                        this.classList.remove('syncing');
+                    }, 1000);
+                }
+            });
+        }
+        
+        // Notificar al usuario
+        setTimeout(() => {
+            showNotification('✅ Conectado - Cambios se ven en tiempo real', 'success', 3000);
+        }, 1000);
+        
+    } catch (error) {
+        console.error("💥 Error crítico:", error);
+        showNotification('❌ Error de conexión - Usando modo demostración', 'error');
+        loadDemoData();
+        loadDefaultServices();
+    }
+}
+
+// 🔴 CORRECCIÓN: FUNCIÓN PARA ENVIAR REPORTE A FIREBASE
+async function enviarReporte(problema, contacto = "No proporcionado") {
+    console.log("📤 Enviando reporte a Firebase...");
+    
+    if (!db) {
+        console.error("❌ Firebase no disponible");
+        return false;
+    }
+    
+    try {
+        const docRef = await db.collection('reportes').add({
+            problema: problema,
+            contacto: contacto,
+            fecha: new Date().toISOString(),
+            estado: "pendiente",
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log("✅ Reporte enviado con ID:", docRef.id);
+        return true;
+        
+    } catch (error) {
+        console.error("❌ Error enviando reporte:", error);
+        return false;
+    }
+}
+
         // ========== FUNCIÓN setupEventListeners ==========
         function setupEventListeners() {
             console.log("🛠️ Configurando eventos...");
@@ -3524,22 +3697,75 @@ if (serviceSelect) {
                 closeModalBtn.addEventListener('click', closeModal);
             }
 
-            // Reportar problemas
-            const toggleReportBtn = document.getElementById('toggleReport');
-            const reportForm = document.getElementById('reportForm');
+ // Reportar problemas
+const toggleReportBtn = document.getElementById('toggleReport');
+const reportForm = document.getElementById('reportForm');
 
-            if (toggleReportBtn && reportForm) {
-                toggleReportBtn.addEventListener('click', function () {
-                    reportForm.classList.toggle('active');
-                });
+if (toggleReportBtn && reportForm) {
+    toggleReportBtn.addEventListener('click', function () {
+        reportForm.classList.toggle('active');
+    });
+}
+
+const sendReportBtn = document.getElementById('sendReport');
+if (sendReportBtn) {
+    sendReportBtn.addEventListener('click', async function() {
+        const problemDescription = document.getElementById('problemDescription').value.trim();
+        
+        if (!problemDescription) {
+            showNotification('Por favor, describe el problema', 'error');
+            return;
+        }
+        
+        try {
+            // Mostrar que se está enviando
+            const originalText = sendReportBtn.innerHTML;
+            sendReportBtn.innerHTML = '<span class="loading"></span> Enviando...';
+            sendReportBtn.disabled = true;
+            
+            // 🔴 CORREGIDO: Usar la función correcta
+            let enviadoExitosamente = false;
+            
+            if (db) {
+                try {
+                    // LLAMAR A LA FUNCIÓN CORRECTA
+                    enviadoExitosamente = await enviarReporte(problemDescription);
+                } catch (firebaseError) {
+                    console.error('Error Firebase:', firebaseError);
+                    enviadoExitosamente = false;
+                }
+            } else {
+                console.log('Modo demo: Firebase no disponible');
             }
-
-            const sendReportBtn = document.getElementById('sendReport');
-            if (sendReportBtn) {
-                sendReportBtn.addEventListener('click', sendReport);
+            
+            // Limpiar el formulario
+            document.getElementById('problemDescription').value = '';
+            reportForm.classList.remove('active');
+            
+            // Mostrar notificación apropiada
+            if (enviadoExitosamente) {
+                showNotification('✅ Reporte enviado correctamente', 'success');
+            } else if (db) {
+                showNotification('⚠️ No se pudo enviar el reporte a Firebase', 'info');
+            } else {
+                showNotification('✅ Reporte registrado (modo demo)', 'info');
             }
+            
+        } catch (error) {
+            console.error('Error general enviando reporte:', error);
+            showNotification('❌ Error al enviar el reporte', 'error');
+        } finally {
+            // Restaurar el botón
+            sendReportBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Reporte';
+            sendReportBtn.disabled = false;
+        }
+    });
+}
 
-            console.log("✅ Todos los eventos configurados");
+// Diagnóstico al cargar
+console.log("🔍 Diagnóstico de funciones:");
+console.log("enviarReporte existe?", typeof enviarReporte === 'function');
+console.log("enviarReporteFirebase existe?", typeof enviarReporteFirebase === 'function');
 
             // Configurar eventos de la nueva ventana de confirmación
             function setupModalEvents() {
