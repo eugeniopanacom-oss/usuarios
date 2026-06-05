@@ -3154,9 +3154,9 @@ let ofertaRechazadaParaFechaHora = {};
 let ofertasCache = []; 
 let ofertaTimeout = null;
 
-// Variables globales del calendario
-let currentMonth = 1; // Febrero
-let currentYear = 2026;
+// Variables globales del calendario - SIEMPRE mes actual
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
 let selectedDate = null;
 let calendarioInicializado = false;
 
